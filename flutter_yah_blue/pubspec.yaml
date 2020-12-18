@@ -27,6 +27,7 @@ dependencies:
   fluttertoast: ^2.1.1
   sprintf: ^4.0.2
   crclib: ^1.0.1
+  flutter_section_table_view: ^1.0.5
 
 dev_dependencies:
   flutter_test:

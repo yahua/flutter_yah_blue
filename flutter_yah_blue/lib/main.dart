@@ -80,12 +80,14 @@ class _MyHomePageState extends State<MyHomePage> {
   }
   void _connect(int index) async {
       BluetoothDevice device = list[index].device;
-      Fluttertoast.showToast(msg:'正在连接手环');
+      AdvertisementData advertisementData = list[index].advertisementData;
+      Fluttertoast.showToast(msg:'正在连接设备');
       await device.connect(timeout:Duration(seconds: 10), autoConnect: true);
       Fluttertoast.cancel();
       Fluttertoast.showToast(msg:'连接成功');
       //跳转
-      Navigator.push(context, MaterialPageRoute(builder: (context) => SecondScreen(device: device,)));
+      Navigator.push(context, MaterialPageRoute(builder: (context) =>
+          DeviceDetail(device: device, advertisementData: advertisementData)));
   }
   @override
   Widget build(BuildContext context) {

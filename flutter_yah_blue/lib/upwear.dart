@@ -4,39 +4,37 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:convert/convert.dart';
 import 'package:sprintf/sprintf.dart';
 import 'package:crclib/crclib.dart';
+import 'package:flutter_section_table_view/flutter_section_table_view.dart';
 
 import 'gattpacket.dart';
 import 'utils.dart';
 
-class SecondScreen extends StatefulWidget {
-  SecondScreen({Key key, this.device}) : super(key:key);
+class DeviceDetail extends StatefulWidget {
+  DeviceDetail({Key key, this.device, this.advertisementData}) : super(key:key);
   final BluetoothDevice device;
-
+  final AdvertisementData advertisementData;
   @override
   State<StatefulWidget> createState() {
     // TODO: implement createState
-    return _SecondScreenState(device);
+    return _DeviceDetailState(device, advertisementData);
   }
 }
 
-class _SecondScreenState extends State<SecondScreen> {
+class _DeviceDetailState extends State<DeviceDetail> {
 
-  _SecondScreenState(this.device);
+  _DeviceDetailState(this.device, this.advertisementData);
   final BluetoothDevice device;
-  BluetoothService upwearService;
+  final AdvertisementData advertisementData;
+  List<BluetoothService> services = [];
   BluetoothCharacteristic readCharacteristic;
   BluetoothCharacteristic writeCharacteristic;
-  final String serviceUUID = '00060000-f8ce-11e4-abf4-0002a5d5c51b';
-  final String readUUID = '00060001-f8ce-11e4-abf4-0002a5d5c51b';
-  final String writeUUID = '00060001-f8ce-11e4-abf4-0002a5d5c51b';
-
 
   @override
   void dispose() {
     // TODO: implement dispose
     super.dispose();
     device.disconnect();
-    Fluttertoast.showToast(msg:'手环断开连接');
+    Fluttertoast.showToast(msg:'设备断开连接');
   }
   @override
   void initState()  {
@@ -45,7 +43,7 @@ class _SecondScreenState extends State<SecondScreen> {
     findServices();
     device.state.listen((state){
       if (state == BluetoothDeviceState.disconnected) {
-        print('手环断开了连接了');
+        print('设备断开了连接了');
         Navigator.pop(context);
       }
     });
@@ -56,41 +54,155 @@ class _SecondScreenState extends State<SecondScreen> {
       appBar: AppBar(
         title: Text(device.name),
       ),
-      body: new ListView.separated(
-        itemBuilder: (BuildContext context, int index) {
-          return GestureDetector(
-            child: ListTile(
-              title: Text(index==0?"设置日期":"获取步数"),
-              trailing: Icon(Icons.arrow_forward_ios),
+      body: SafeArea(
+//        child:tableWidget()
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+                constraints: BoxConstraints(maxWidth: double.infinity),
+                height: 180,
+                color: Colors.white,
+              child: tableHeaderView(),
             ),
-            onTap: () {
-              clickEvent(index);
-            },
-          );
+            Expanded(
+                flex: 1,
+                child: tableWidget()
+            )
+          ],
+        ),
+      ),
+    );
+  }
+  Widget tableHeaderView(){
+    var deviceId = device.id.id;
+      return Stack(
+        children: <Widget>[
+          Positioned(
+            left: 15,
+            top: 15,
+            child: Text(device.name, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: Color(0xff1a1a1a))),
+          ),
+          Positioned(
+            left: 15,
+            top: 43,
+            child: Text('UUID:$deviceId', style: TextStyle(fontSize: 14, color: Color(0xff1a1a1a))),
+          ),
+          Positioned(
+            left: 15,
+            top: 70,
+            child: Text('Advertisement Data', style: TextStyle(fontSize: 14, color: Color(0xff1a1a1a))),
+          ),
+          Positioned(
+            left: 15,
+            top: 93,
+            child: Text(advertisementData.manufacturerData.toString(), style: TextStyle(fontSize: 14, color: Color(0xff1a1a1a))),
+    )
+        ],
+      );
+  }
+  Widget tableWidget() {
+    return Container (
+      color: Color(0xffECECF0),
+      child: SectionTableView(
+        sectionCount: this.services.length,
+        numOfRowInSection: (section){
+          return this.services[section].characteristics.length;
         },
-        itemCount: 2,
-        separatorBuilder: (BuildContext context, int index) {
-          return Divider(color: Colors.black38);
+        cellAtIndexPath: (section, row) {
+          return tableCell(section, row);
         },
+        headerInSection: (section) {
+          return tableSectionHeader(section);
+        },
+        divider: Container(
+          color: Colors.black38,
+          height: 0.5,
+        ),
+      ),
+    );
+  }
+  Widget tableCell(section, row) {
+    BluetoothCharacteristic c = this.services[section].characteristics[row];
+    String uuid = c.uuid.toString();
+    String property = '';
+    if (c.properties.read) {
+      property += 'Read,';
+    }
+    if (c.properties.write) {
+      property += 'Write,';
+    }
+    if (c.properties.writeWithoutResponse) {
+      property += 'WriteWithoutResponse,';
+    }
+    if (c.properties.notify) {
+      property += 'Notify,';
+    }
+    if (c.properties.indicate) {
+      property += 'Indicate';
+    }
+    return Container(
+      color: Colors.white,
+      height: 70,
+      child: Stack(
+        children: <Widget>[
+          Container(
+          ),
+          Positioned(
+            left: 15,
+            top: 15,
+            child: Text(uuid, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xff666666))),
+          ),
+          Positioned(
+            left: 15,
+            top: 40,
+            child: Text('Properties: $property', style: TextStyle(fontSize: 14,  color: Color(0xff666666))),
+          ),
+        ],
+      ),
+    );
+  }
+  Widget tableSectionHeader(section){
+    BluetoothService service = this.services[section];
+    String uuid = service.uuid.toString();
+    return Container(
+      height: 80.0,
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            left: 15,
+            bottom: 15,
+            width: 360,
+            child: Container(
+              constraints: BoxConstraints(maxWidth: double.infinity),
+              child: Text('UUID:$uuid',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 16, color: Color(0xff1a1a1a), fontWeight: FontWeight.bold)),
+            ) ,
+          ),
+          Positioned(
+            left: 0,
+            bottom: 0,
+            right: 0,
+            child: Container(
+              color: Colors.black38,
+              height: 0.5,
+            ),
+          )
+        ],
       ),
     );
   }
 
   void findServices() async {
-    List<BluetoothService> services = await device.discoverServices();
+    services = await device.discoverServices();
     services.forEach((service) {
       // do something with service
-      if (service.uuid.toString() == serviceUUID) {
-        upwearService = service;
-        var characteristics = service.characteristics;
-        for(BluetoothCharacteristic c in characteristics) {
-          if(c.uuid.toString() == readUUID) {
-            readCharacteristic = c;
-            setCharacteristicNotify(c, true);
-          }
-          if(c.uuid.toString() == writeUUID) {
-            writeCharacteristic = c;
-          }
+      var characteristics = service.characteristics;
+      for(BluetoothCharacteristic c in characteristics) {
+        if(c.properties.notify) {
+          setCharacteristicNotify(c, true);
         }
       }
     });
